@@ -19,6 +19,8 @@
 (function() {
   'use strict';
 
+  var imageDecoderWorker = new Worker('scripts/jsqrcode/qrworker.js');
+
   var QRCodeCamera = function(element) {
     // Controls the Camera and the QRCode Module
 
@@ -28,53 +30,51 @@
 
     cameraManager.onframe = function() {
       // There is a frame in the camera, what should we do with it?
- 
-      var imageData = cameraManager.getImageData();
-      var detectedQRCode = qrCodeManager.detectQRCode(imageData, function(url) {
-        if(url !== undefined) {
-          qrCodeManager.showDialog(url);
-        }
-      });
+      if (qrCodeManager.numActiveThreads < qrCodeManager.maxThreads) {
+        qrCodeManager.detectQRCode(cameraManager.getImageData());
+        qrCodeManager.numActiveThreads++;
+      }
+    };
+
+    // Worker listener
+    imageDecoderWorker.onmessage = function (e) {
+      var url = e.data;
+      // freeing 1 thread slot
+      qrCodeManager.numActiveThreads--;
+
+      if (url) {
+        // found a QRCode
+        qrCodeManager.showDialog(url);
+        qrCodeManager.currentUrl = url;
+      }
+    };
     
+    imageDecoderWorker.onerror = function(error) {
+      function WorkerException(message) {
+        this.name = "WorkerException";
+        this.message = message;
+      };
+      throw new WorkerException('Decoder error');
     };
   };
 
   var QRCodeManager = function(element) {
+    this.numActiveThreads = 0;
+    this.maxThreads = window.navigator.hardwareConcurrency || 4;
+
     var root = document.getElementById(element);
     var canvas = document.getElementById("qr-canvas");
     var qrcodeData = root.querySelector(".QRCodeSuccessDialog-data");
     var qrcodeNavigate = root.querySelector(".QRCodeSuccessDialog-navigate");
     var qrcodeIgnore = root.querySelector(".QRCodeSuccessDialog-ignore");
-
     var client = new QRClient();
-
-    var imageDecoderWorker = new Worker('scripts/jsqrcode/qrworker.js');
 
     var self = this;
 
     this.currentUrl = undefined;
 
-    this.detectQRCode = function(imageData, callback) {
-      callback = callback || function() {};
-
+    this.detectQRCode = function(imageData) {
       imageDecoderWorker.postMessage(imageData);
-
-      imageDecoderWorker.onmessage = function(result) {
-        var url = result.data;
-        if(url !== undefined) {
-          self.currentUrl = url;
-        }
-        callback(url);
-      };
-
-      imageDecoderWorker.onerror = function(error) {
-        function WorkerException(message) {
-          this.name = "WorkerException";
-          this.message = message;
-        };
-        throw new WorkerException('Decoder error');
-        callback(undefined);
-      };
     };
 
     this.showDialog = function(url) {
@@ -226,7 +226,7 @@
       else {
         params = { video: { optional: [{sourceId: videoSource.id}] } };
       }
-  
+
       gUM.call(navigator, params, function(theStream) {
         localStream = theStream;
         
