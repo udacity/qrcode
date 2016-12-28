@@ -60,7 +60,7 @@
 
   var QRCodeManager = function(element) {
     this.numActiveThreads = 0;
-    this.maxThreads = 4;
+    this.maxThreads = window.navigator.hardwareConcurrency || 4;
 
     var root = document.getElementById(element);
     var canvas = document.getElementById("qr-canvas");
