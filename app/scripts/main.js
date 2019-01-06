@@ -244,7 +244,7 @@
           cb(videoSource);
         };
 
-        cameraVideo.src = window.URL.createObjectURL(localStream);
+        cameraVideo.srcObject = localStream;
         cameraVideo.load();
         cameraVideo.play();
       }, function(error) {});
