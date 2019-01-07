@@ -244,7 +244,7 @@
           cb(videoSource);
         };
 
-        cameraVideo.src = window.URL.createObjectURL(localStream);
+        cameraVideo.srcObject = localStream;
         cameraVideo.load();
         cameraVideo.play();
       }, function(error) {});
@@ -311,7 +311,7 @@
       if(document.visibilityState === 'hidden') {
         // Disconnect the camera.
         if(localStream !== undefined) {
-          localStream.stop();
+          localStream.getVideoTracks()[0].stop();
           localStream = undefined;
         }
       }
